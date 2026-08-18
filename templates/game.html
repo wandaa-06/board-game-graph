@@ -1,0 +1,28 @@
+{% extends "base.html" %} {% block title %}{{ game.name }} — TableLink{% endblock %} {% block content %}
+Game
+
+{{ game.name }}
+{{ game.year_published }} {{ game.min_players }}–{{ game.max_players }} players {{ game.play_time_minutes }} min
+{% for m in game.mechanics %}{{ m }}{% endfor %} {% for t in game.themes %}{{ t }}{% endfor %}
+{% if game.designer %}
+Designed by {{ game.designer }}
+
+{% endif %}
+{% if web_nodes %}
+Connection web — games sharing a mechanic
+
+{{ game.name[:14] }}
+{{ node.name[:12] }}
+{% endif %}
+Recommended if you like {{ game.name }}
+{% if recommendations %}
+{% for rec in recommendations %}
+{{ rec.recommended_game }}
+{{ rec.shared_count }} shared mechanic{{ 's' if rec.shared_count != 1 else '' }}
+{% for m in rec.shared_mechanics %}{{ m }}{% endfor %}
+{% endfor %}
+{% else %}
+No related games yet
+This game doesn't share a mechanic with anything else in the graph.
+
+{% endif %} {% endblock %}
