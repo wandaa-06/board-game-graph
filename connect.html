@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Find a connection — TableLink{% endblock %}
+
+{% block content %}
+  <p class="eyebrow">Path finder</p>
+  <h1>How are two games connected?</h1>
+  <p class="lede">
+    Pick any two games. We'll trace the shortest path between them through
+    shared mechanics, themes, or designers &mdash; however many hops it takes.
+  </p>
+
+  <form class="connect-form" method="get">
+    <select name="game_a" aria-label="First game">
+      <option value="">Choose a game&hellip;</option>
+      {% for g in all_games %}
+        <option value="{{ g }}" {% if g == game_a %}selected{% endif %}>{{ g }}</option>
+      {% endfor %}
+    </select>
+    <span class="stat">and</span>
+    <select name="game_b" aria-label="Second game">
+      <option value="">Choose a game&hellip;</option>
+      {% for g in all_games %}
+        <option value="{{ g }}" {% if g == game_b %}selected{% endif %}>{{ g }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn">Trace the path</button>
+  </form>
+
+  {% if searched %}
+    {% if game_a == game_b %}
+      <div class="empty-state">
+        <h2>That's the same game twice</h2>
+        <p>Pick two different games to trace a path between them.</p>
+      </div>
+    {% elif path %}
+      <h2>Shortest path &mdash; {{ path.hops }} hop{{ 's' if path.hops != 1 else '' }}</h2>
+      <div class="path-chain">
+        {% for node in path.path_nodes %}
+          {% if loop.index0 % 2 == 0 %}
+            <span class="path-node">{{ node }}</span>
+          {% else %}
+            <span class="path-arrow">&rarr;</span>
+            <span class="path-node intermediate">{{ node }}</span>
+            <span class="path-arrow">&rarr;</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <h2>No connection found</h2>
+        <p>These two games aren't linked within the graph's current data.</p>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}

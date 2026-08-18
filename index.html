@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}TableLink — Browse{% endblock %}
+
+{% block content %}
+  <p class="eyebrow">Board game recommendation graph</p>
+  <h1>Find your next favorite game<br>through the ones you already love.</h1>
+  <p class="lede">
+    Every game here is a node. Mechanics, themes, and designers are the
+    threads connecting them. Filter the shelf, or open a game to see its
+    web of connections.
+  </p>
+
+  <form class="filter-bar" method="get">
+    <select name="mechanic" aria-label="Filter by mechanic">
+      <option value="">All mechanics</option>
+      {% for m in all_mechanics %}
+        <option value="{{ m }}" {% if m == selected_mechanic %}selected{% endif %}>{{ m }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="theme" aria-label="Filter by theme">
+      <option value="">All themes</option>
+      {% for t in all_themes %}
+        <option value="{{ t }}" {% if t == selected_theme %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit">Filter</button>
+    {% if selected_mechanic or selected_theme %}
+      <a class="clear" href="{{ url_for('home') }}">Clear filters</a>
+    {% endif %}
+  </form>
+
+  {% if games %}
+    <div class="shelf">
+      {% for game in games %}
+        <a class="game-card" href="{{ url_for('game_detail', game_name=game.name) }}">
+          <h3>{{ game.name }}</h3>
+          <div class="meta">
+            {{ game.year_published }} &middot; {{ game.min_players }}&ndash;{{ game.max_players }} players &middot; {{ game.play_time_minutes }} min
+          </div>
+          <div class="tags">
+            {% for m in game.mechanics %}<span class="tag">{{ m }}</span>{% endfor %}
+            {% for t in game.themes %}<span class="tag theme">{{ t }}</span>{% endfor %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h2>No games match that filter</h2>
+      <p>Try a different mechanic or theme, or <a class="designer-link" href="{{ url_for('home') }}">clear the filters</a>.</p>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.designer }} — TableLink{% endblock %}
+
+{% block content %}
+  <p class="eyebrow">Designer</p>
+  <h1>{{ profile.designer }}</h1>
+  <p class="lede">
+    {{ profile.games_designed }} game{{ 's' if profile.games_designed != 1 else '' }} in the graph,
+    spanning {{ profile.themes_covered|length }} theme{{ 's' if profile.themes_covered|length != 1 else '' }}.
+  </p>
+  <div class="tags">
+    {% for t in profile.themes_covered %}<span class="tag theme">{{ t }}</span>{% endfor %}
+  </div>
+{% endblock %}

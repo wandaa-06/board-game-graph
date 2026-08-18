@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Not found — TableLink{% endblock %}
+
+{% block content %}
+  <div class="empty-state">
+    <h2>Nothing here</h2>
+    <p>That game or designer isn't in the graph. <a class="designer-link" href="{{ url_for('home') }}">Back to the shelf</a>.</p>
+  </div>
+{% endblock %}
