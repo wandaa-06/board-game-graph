@@ -1,0 +1,23 @@
+{% extends "base.html" %} {% block title %}TableLink — Browse{% endblock %} {% block content %}
+Board game recommendation graph
+
+Find your next favorite game
+through the ones you already love.
+Every game here is a node. Mechanics, themes, and designers are the threads connecting them. Filter the shelf, or open a game to see its web of connections.
+
+
+All mechanics
+ 
+All themes
+ Filter {% if selected_mechanic or selected_theme %} Clear filters {% endif %}
+{% if games %}
+{% for game in games %}
+{{ game.name }}
+{{ game.year_published }} · {{ game.min_players }}–{{ game.max_players }} players · {{ game.play_time_minutes }} min
+{% for m in game.mechanics %}{{ m }}{% endfor %} {% for t in game.themes %}{{ t }}{% endfor %}
+{% endfor %}
+{% else %}
+No games match that filter
+Try a different mechanic or theme, or clear the filters.
+
+{% endif %} {% endblock %}
