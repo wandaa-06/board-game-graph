@@ -1,0 +1,8 @@
+{% extends "base.html" %} {% block title %}{{ profile.designer }} — TableLink{% endblock %} {% block content %}
+Designer
+
+{{ profile.designer }}
+{{ profile.games_designed }} game{{ 's' if profile.games_designed != 1 else '' }} in the graph, spanning {{ profile.themes_covered|length }} theme{{ 's' if profile.themes_covered|length != 1 else '' }}.
+
+{% for t in profile.themes_covered %}{{ t }}{% endfor %}
+{% endblock %}
