@@ -1,0 +1,23 @@
+{% extends "base.html" %} {% block title %}Find a connection — TableLink{% endblock %} {% block content %}
+Path finder
+
+How are two games connected?
+Pick any two games. We'll trace the shortest path between them through shared mechanics, themes, or designers — however many hops it takes.
+
+
+Choose a game…
+ and 
+Choose a game…
+ Trace the path
+{% if searched %} {% if game_a == game_b %}
+That's the same game twice
+Pick two different games to trace a path between them.
+
+{% elif path %}
+Shortest path — {{ path.hops }} hop{{ 's' if path.hops != 1 else '' }}
+{% for node in path.path_nodes %} {% if loop.index0 % 2 == 0 %} {{ node }} {% else %} → {{ node }} → {% endif %} {% endfor %}
+{% else %}
+No connection found
+These two games aren't linked within the graph's current data.
+
+{% endif %} {% endif %} {% endblock %}
