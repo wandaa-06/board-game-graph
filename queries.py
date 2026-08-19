@@ -1,10 +1,8 @@
 """
 Core Cypher queries for the Board Game Recommendation Graph.
-Run this standalone to sanity-check each query against the seeded data
-before wiring them into the Flask app.
 
-Usage:
-    python queries.py
+Temporary test version:
+This also checks whether Mechanics and Themes exist in Neo4j.
 """
 
 import os
@@ -19,9 +17,7 @@ PASSWORD = os.getenv("COGNODB_PASSWORD")
 
 
 # ---------------------------------------------------------------------------
-# Query 1: Multi-hop recommendation (2 hops)
-# "Given a game, find other games that share at least 2 mechanics with it."
-# Path: Game -> HAS_MECHANIC -> Mechanic <- HAS_MECHANIC <- Game
+# Query 1: Multi-hop recommendation
 # ---------------------------------------------------------------------------
 def recommend_by_shared_mechanics(driver, game_name, min_shared=2):
     query = """
@@ -35,18 +31,18 @@ def recommend_by_shared_mechanics(driver, game_name, min_shared=2):
            shared_count
     ORDER BY shared_count DESC
     """
+
     with driver.session() as session:
         result = session.run(
-            query, game_name=game_name, min_shared=min_shared
+            query,
+            game_name=game_name,
+            min_shared=min_shared
         )
         return [record.data() for record in result]
 
 
 # ---------------------------------------------------------------------------
-# Query 2: Variable-length path between two games (SQL-awkward)
-# "How are two games connected through shared mechanics, themes, or
-# designers, within N hops?" This kind of flexible-depth traversal needs
-# recursive CTEs in SQL; in Cypher it's a single pattern.
+# Query 2: Variable-length path between two games
 # ---------------------------------------------------------------------------
 def shortest_connection(driver, game_a, game_b, max_hops=4):
     query = """
@@ -57,15 +53,19 @@ def shortest_connection(driver, game_a, game_b, max_hops=4):
                 coalesce(node.name, labels(node)[0])] AS path_nodes,
            length(path) AS hops
     """ % max_hops
+
     with driver.session() as session:
-        result = session.run(query, game_a=game_a, game_b=game_b)
+        result = session.run(
+            query,
+            game_a=game_a,
+            game_b=game_b
+        )
         record = result.single()
         return record.data() if record else None
 
 
 # ---------------------------------------------------------------------------
-# Query 3: Designer's "range" — designers who've worked across many themes
-# (a simple aggregation query, useful for a designer profile page)
+# Query 3: Designer's theme range
 # ---------------------------------------------------------------------------
 def designer_theme_range(driver, designer_name):
     query = """
@@ -75,15 +75,18 @@ def designer_theme_range(driver, designer_name):
            collect(DISTINCT t.name) AS themes_covered,
            count(DISTINCT g) AS games_designed
     """
+
     with driver.session() as session:
-        result = session.run(query, designer_name=designer_name)
+        result = session.run(
+            query,
+            designer_name=designer_name
+        )
         record = result.single()
         return record.data() if record else None
 
 
 # ---------------------------------------------------------------------------
-# Query 4: List all games (for the browse/home page), optionally filtered
-# by mechanic and/or theme.
+# Query 4: List all games, optionally filtered
 # ---------------------------------------------------------------------------
 def list_games(driver, mechanic=None, theme=None):
     query = """
@@ -91,11 +94,15 @@ def list_games(driver, mechanic=None, theme=None):
     OPTIONAL MATCH (g)-[:HAS_MECHANIC]->(m:Mechanic)
     OPTIONAL MATCH (g)-[:HAS_THEME]->(t:Theme)
     OPTIONAL MATCH (g)-[:DESIGNED_BY]->(d:Designer)
-    WITH g, collect(DISTINCT m.name) AS mechanics,
-            collect(DISTINCT t.name) AS themes,
-            d.name AS designer
+
+    WITH g,
+         collect(DISTINCT m.name) AS mechanics,
+         collect(DISTINCT t.name) AS themes,
+         d.name AS designer
+
     WHERE ($mechanic IS NULL OR $mechanic IN mechanics)
       AND ($theme IS NULL OR $theme IN themes)
+
     RETURN g.name AS name,
            g.year_published AS year_published,
            g.min_players AS min_players,
@@ -104,16 +111,21 @@ def list_games(driver, mechanic=None, theme=None):
            mechanics,
            themes,
            designer
+
     ORDER BY g.name
     """
+
     with driver.session() as session:
-        result = session.run(query, mechanic=mechanic, theme=theme)
+        result = session.run(
+            query,
+            mechanic=mechanic,
+            theme=theme
+        )
         return [record.data() for record in result]
 
 
 # ---------------------------------------------------------------------------
-# Query 5: Full detail for a single game, including its 1-hop mechanic/theme/
-# designer neighbors (used to draw the "connection web" on the game page).
+# Query 5: Full detail for a single game
 # ---------------------------------------------------------------------------
 def get_game(driver, game_name):
     query = """
@@ -121,6 +133,7 @@ def get_game(driver, game_name):
     OPTIONAL MATCH (g)-[:HAS_MECHANIC]->(m:Mechanic)
     OPTIONAL MATCH (g)-[:HAS_THEME]->(t:Theme)
     OPTIONAL MATCH (g)-[:DESIGNED_BY]->(d:Designer)
+
     RETURN g.name AS name,
            g.year_published AS year_published,
            g.min_players AS min_players,
@@ -130,47 +143,120 @@ def get_game(driver, game_name):
            collect(DISTINCT t.name) AS themes,
            d.name AS designer
     """
+
     with driver.session() as session:
-        result = session.run(query, game_name=game_name)
+        result = session.run(
+            query,
+            game_name=game_name
+        )
         record = result.single()
         return record.data() if record else None
 
 
 # ---------------------------------------------------------------------------
-# Query 6: Distinct mechanics / themes, used to populate filter dropdowns.
+# Query 6: List mechanics, themes, and designers
 # ---------------------------------------------------------------------------
 def list_mechanics(driver):
     with driver.session() as session:
-        result = session.run("MATCH (m:Mechanic) RETURN m.name AS name ORDER BY name")
+        result = session.run(
+            """
+            MATCH (m:Mechanic)
+            RETURN m.name AS name
+            ORDER BY name
+            """
+        )
         return [record["name"] for record in result]
 
 
 def list_themes(driver):
     with driver.session() as session:
-        result = session.run("MATCH (t:Theme) RETURN t.name AS name ORDER BY name")
+        result = session.run(
+            """
+            MATCH (t:Theme)
+            RETURN t.name AS name
+            ORDER BY name
+            """
+        )
         return [record["name"] for record in result]
 
 
 def list_designers(driver):
     with driver.session() as session:
-        result = session.run("MATCH (d:Designer) RETURN d.name AS name ORDER BY name")
+        result = session.run(
+            """
+            MATCH (d:Designer)
+            RETURN d.name AS name
+            ORDER BY name
+            """
+        )
         return [record["name"] for record in result]
 
 
+# ---------------------------------------------------------------------------
+# TEMPORARY DATABASE TEST
+# ---------------------------------------------------------------------------
 def main():
-    driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
+    print("Connecting to Neo4j...")
+
+    driver = GraphDatabase.driver(
+        URI,
+        auth=(USER, PASSWORD)
+    )
+
     try:
         driver.verify_connectivity()
 
-        print("\n--- Query 1: Games sharing 2+ mechanics with 'Starforge Dominion' ---")
-        for row in recommend_by_shared_mechanics(driver, "Starforge Dominion"):
-            print(row)
+        print("\n========================================")
+        print("DATABASE CONNECTION: SUCCESS")
+        print("========================================")
 
-        print("\n--- Query 2: Shortest connection between 'Whispering Marsh' and 'Sable & Steel' ---")
-        print(shortest_connection(driver, "Whispering Marsh", "Sable & Steel"))
+        print("\n--- MECHANICS ---")
+        mechanics = list_mechanics(driver)
+        print(mechanics)
+        print("Number of mechanics:", len(mechanics))
 
-        print("\n--- Query 3: Theme range for designer 'Elin Voss' ---")
-        print(designer_theme_range(driver, "Elin Voss"))
+        print("\n--- THEMES ---")
+        themes = list_themes(driver)
+        print(themes)
+        print("Number of themes:", len(themes))
+
+        print("\n--- GAMES ---")
+        games = list_games(driver)
+        print("Number of games:", len(games))
+
+        if games:
+            print("\nFirst game:")
+            print(games[0])
+
+        print("\n--- FILTER TEST ---")
+
+        if mechanics:
+            test_mechanic = mechanics[0]
+
+            print("Testing mechanic:", test_mechanic)
+
+            filtered_games = list_games(
+                driver,
+                mechanic=test_mechanic
+            )
+
+            print("Games returned:", len(filtered_games))
+
+            for game in filtered_games:
+                print(" -", game["name"])
+
+        else:
+            print("NO MECHANICS FOUND — cannot test mechanic filter.")
+
+        print("\n========================================")
+        print("TEST COMPLETE")
+        print("========================================")
+
+    except Exception as error:
+        print("\n========================================")
+        print("ERROR")
+        print("========================================")
+        print(error)
 
     finally:
         driver.close()
