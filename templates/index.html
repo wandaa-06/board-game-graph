@@ -1,23 +1,103 @@
-{% extends "base.html" %} {% block title %}TableLink — Browse{% endblock %} {% block content %}
-Board game recommendation graph
+{% extends "base.html" %}
 
-Find your next favorite game
-through the ones you already love.
-Every game here is a node. Mechanics, themes, and designers are the threads connecting them. Filter the shelf, or open a game to see its web of connections.
+{% block title %}TableLink — Browse{% endblock %}
 
+{% block content %}
 
-All mechanics
- 
-All themes
- Filter {% if selected_mechanic or selected_theme %} Clear filters {% endif %}
+<section>
+    <div class="eyebrow">Board game discovery</div>
+
+    <h1>Board game recommendation graph</h1>
+
+    <p class="lede">
+        Find your next favorite game through the ones you already love.
+        Every game here is a node. Mechanics, themes, and designers are
+        the threads connecting them. Filter the shelf, or open a game
+        to see its web of connections.
+    </p>
+</section>
+
+<form method="get" class="filter-bar">
+
+    <select name="mechanic">
+        <option value="">All mechanics</option>
+
+        {% for mechanic in mechanics %}
+        <option value="{{ mechanic }}"
+            {% if selected_mechanic == mechanic %}selected{% endif %}>
+            {{ mechanic }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <select name="theme">
+        <option value="">All themes</option>
+
+        {% for theme in themes %}
+        <option value="{{ theme }}"
+            {% if selected_theme == theme %}selected{% endif %}>
+            {{ theme }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Filter</button>
+
+    {% if selected_mechanic or selected_theme %}
+    <a href="{{ url_for('home') }}" class="clear">Clear filters</a>
+    {% endif %}
+
+</form>
+
 {% if games %}
-{% for game in games %}
-{{ game.name }}
-{{ game.year_published }} · {{ game.min_players }}–{{ game.max_players }} players · {{ game.play_time_minutes }} min
-{% for m in game.mechanics %}{{ m }}{% endfor %} {% for t in game.themes %}{{ t }}{% endfor %}
-{% endfor %}
-{% else %}
-No games match that filter
-Try a different mechanic or theme, or clear the filters.
 
-{% endif %} {% endblock %}
+<div class="shelf">
+
+    {% for game in games %}
+
+    <a href="{{ url_for('game_detail', game_name=game.name) }}"
+       class="game-card">
+
+        <h3>{{ game.name }}</h3>
+
+        <div class="meta">
+            {{ game.year_published }}
+            ·
+            {{ game.min_players }}–{{ game.max_players }} players
+            ·
+            {{ game.play_time_minutes }} min
+        </div>
+
+        <div class="tags">
+
+            {% for m in game.mechanics %}
+            <span class="tag">{{ m }}</span>
+            {% endfor %}
+
+            {% for t in game.themes %}
+            <span class="tag theme">{{ t }}</span>
+            {% endfor %}
+
+        </div>
+
+    </a>
+
+    {% endfor %}
+
+</div>
+
+{% else %}
+
+<div class="empty-state">
+
+    <h2>No games match that filter</h2>
+
+    <p>
+        Try a different mechanic or theme, or clear the filters.
+    </p>
+
+</div>
+
+{% endif %}
+
+{% endblock %}
