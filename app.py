@@ -1,205 +1,105 @@
-import os
-import math
+{% extends "base.html" %}
 
-from flask import Flask, render_template, request, abort
-from dotenv import load_dotenv
-from neo4j import GraphDatabase
-from neo4j.exceptions import ServiceUnavailable, AuthError
+{% block title %}TableLink — Browse{% endblock %}
 
-import queries
+{% block content %}
 
-# Load environment variables
-load_dotenv()
+<section>
+    <div class="eyebrow">Board game discovery</div>
 
-URI = os.getenv("COGNODB_URI")
-USER = os.getenv("COGNODB_USER")
-PASSWORD = os.getenv("COGNODB_PASSWORD")
+    <h1>Board game recommendation graph</h1>
 
-app = Flask(__name__)
+    <p class="lede">
+        Find your next favorite game through the ones you already love.
+        Every game here is a node. Mechanics, themes, and designers are
+        the threads connecting them. Filter the shelf, or open a game
+        to see its web of connections.
+    </p>
+</section>
 
-_driver = None
+<form method="get" class="filter-bar">
 
+    <select name="mechanic">
+        <option value="">All mechanics</option>
 
-def get_driver():
-    """Lazily create a single shared CognoDB driver."""
-    global _driver
+        {% for mechanic in all_mechanics %}
+        <option value="{{ mechanic }}"
+            {% if selected_mechanic == mechanic %}selected{% endif %}>
+            {{ mechanic }}
+        </option>
+        {% endfor %}
+    </select>
 
-    if _driver is None:
-        _driver = GraphDatabase.driver(
-            URI,
-            auth=(USER, PASSWORD)
-        )
+    <select name="theme">
+        <option value="">All themes</option>
 
-    return _driver
+        {% for theme in all_themes %}
+        <option value="{{ theme }}"
+            {% if selected_theme == theme %}selected{% endif %}>
+            {{ theme }}
+        </option>
+        {% endfor %}
+    </select>
 
+    <button type="submit">Filter</button>
 
-@app.errorhandler(ServiceUnavailable)
-@app.errorhandler(AuthError)
-def handle_db_down(error):
-    return render_template(
-        "db_error.html",
-        error=str(error)
-    ), 503
+    {% if selected_mechanic or selected_theme %}
+        <a href="{{ url_for('home') }}" class="clear">
+            Clear filters
+        </a>
+    {% endif %}
 
+</form>
 
-@app.route("/")
-def home():
-    driver = get_driver()
+{% if games %}
 
-    mechanic = request.args.get("mechanic") or None
-    theme = request.args.get("theme") or None
+<div class="shelf">
 
-    games = queries.list_games(
-        driver,
-        mechanic=mechanic,
-        theme=theme
-    )
+    {% for game in games %}
 
-    all_mechanics = queries.list_mechanics(driver)
-    all_themes = queries.list_themes(driver)
+    <a href="{{ url_for('game_detail', game_name=game.name) }}"
+       class="game-card">
 
-    return render_template(
-        "index.html",
-        games=games,
-        all_mechanics=all_mechanics,
-        all_themes=all_themes,
-        selected_mechanic=mechanic,
-        selected_theme=theme,
-    )
+        <h3>{{ game.name }}</h3>
 
+        <div class="meta">
+            {{ game.year_published }}
+            ·
+            {{ game.min_players }}–{{ game.max_players }} players
+            ·
+            {{ game.play_time_minutes }} min
+        </div>
 
-@app.route("/game/<game_name>")
-def game_detail(game_name):
-    driver = get_driver()
+        <div class="tags">
 
-    game = queries.get_game(
-        driver,
-        game_name
-    )
+            {% for m in game.mechanics %}
+                <span class="tag">{{ m }}</span>
+            {% endfor %}
 
-    if game is None:
-        abort(404)
+            {% for t in game.themes %}
+                <span class="tag theme">{{ t }}</span>
+            {% endfor %}
 
-    recommendations = queries.recommend_by_shared_mechanics(
-        driver,
-        game_name,
-        min_shared=1
-    )
+        </div>
 
-    # Create positions for the connection web
-    web_nodes = []
+    </a>
 
-    visible_recommendations = recommendations[:8]
-    count = len(visible_recommendations)
+    {% endfor %}
 
-    for i, rec in enumerate(visible_recommendations):
+</div>
 
-        angle = (
-            2 * math.pi * i / count
-            if count
-            else 0
-        )
+{% else %}
 
-        radius = 150
+<div class="empty-state">
 
-        cx = 220
-        cy = 160
+    <h2>No games match that filter</h2>
 
-        x = cx + radius * math.cos(angle)
-        y = cy + radius * math.sin(angle)
+    <p>
+        Try a different mechanic or theme, or clear the filters.
+    </p>
 
-        web_nodes.append(
-            {
-                "name": rec["recommended_game"],
-                "shared_count": rec["shared_count"],
-                "x": round(x, 1),
-                "y": round(y, 1),
-            }
-        )
+</div>
 
-    return render_template(
-        "game.html",
-        game=game,
-        recommendations=recommendations,
-        web_nodes=web_nodes,
-    )
+{% endif %}
 
-
-@app.route("/connect", methods=["GET", "POST"])
-def connect():
-
-    driver = get_driver()
-
-    all_games = [
-        g["name"]
-        for g in queries.list_games(driver)
-    ]
-
-    path = None
-
-    game_a = request.values.get("game_a") or None
-    game_b = request.values.get("game_b") or None
-
-    searched = False
-
-    if game_a and game_b:
-
-        searched = True
-
-        if game_a == game_b:
-            path = None
-        else:
-            path = queries.shortest_connection(
-                driver,
-                game_a,
-                game_b
-            )
-
-    return render_template(
-        "connect.html",
-        all_games=all_games,
-        game_a=game_a,
-        game_b=game_b,
-        path=path,
-        searched=searched,
-    )
-
-
-@app.route("/designer/<designer_name>")
-def designer_detail(designer_name):
-
-    driver = get_driver()
-
-    profile = queries.designer_theme_range(
-        driver,
-        designer_name
-    )
-
-    if profile is None:
-        abort(404)
-
-    return render_template(
-        "designer.html",
-        profile=profile
-    )
-
-
-@app.errorhandler(404)
-def not_found(error):
-    return render_template(
-        "not_found.html"
-    ), 404
-
-
-# Local development / fallback server
-# Render uses Gunicorn, so this section is not used by Gunicorn.
-if __name__ == "__main__":
-
-    port = int(
-        os.environ.get("PORT", 10000)
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
+{% endblock %}
