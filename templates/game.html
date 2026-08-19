@@ -1,28 +1,61 @@
-{% extends "base.html" %} {% block title %}{{ game.name }} — TableLink{% endblock %} {% block content %}
-Game
+{% extends "base.html" %}
+{% block title %}{{ game.name }} — TableLink{% endblock %}
 
-{{ game.name }}
-{{ game.year_published }} {{ game.min_players }}–{{ game.max_players }} players {{ game.play_time_minutes }} min
-{% for m in game.mechanics %}{{ m }}{% endfor %} {% for t in game.themes %}{{ t }}{% endfor %}
-{% if game.designer %}
-Designed by {{ game.designer }}
+{% block content %}
+  <div class="detail-header">
+    <p class="eyebrow">Game</p>
+    <h1>{{ game.name }}</h1>
+    <div class="meta-row stat">
+      <span>{{ game.year_published }}</span>
+      <span>{{ game.min_players }}&ndash;{{ game.max_players }} players</span>
+      <span>{{ game.play_time_minutes }} min</span>
+    </div>
+    <div class="tags">
+      {% for m in game.mechanics %}<span class="tag">{{ m }}</span>{% endfor %}
+      {% for t in game.themes %}<span class="tag theme">{{ t }}</span>{% endfor %}
+    </div>
+    {% if game.designer %}
+      <p style="margin-top:16px;">
+        Designed by
+        <a class="designer-link" href="{{ url_for('designer_detail', designer_name=game.designer) }}">{{ game.designer }}</a>
+      </p>
+    {% endif %}
+  </div>
 
-{% endif %}
-{% if web_nodes %}
-Connection web — games sharing a mechanic
+  {% if web_nodes %}
+  <div class="web-panel">
+    <p class="eyebrow" style="margin-bottom:12px;">Connection web &mdash; games sharing a mechanic</p>
+    <svg viewBox="0 0 440 320" xmlns="http://www.w3.org/2000/svg">
+      {% for node in web_nodes %}
+        <line x1="220" y1="160" x2="{{ node.x }}" y2="{{ node.y }}" stroke="#C9A227" stroke-width="{{ 1 + node.shared_count }}" stroke-opacity="0.55" />
+      {% endfor %}
+      <circle cx="220" cy="160" r="34" fill="#E0BC4A" />
+      <text x="220" y="164" text-anchor="middle" font-family="Fraunces, serif" font-size="11" font-weight="700" fill="#221D14">{{ game.name[:14] }}</text>
+      {% for node in web_nodes %}
+        <circle cx="{{ node.x }}" cy="{{ node.y }}" r="{{ 16 + node.shared_count * 2 }}" fill="#EFE6D3" />
+        <text x="{{ node.x }}" y="{{ node.y + 3 }}" text-anchor="middle" font-family="Work Sans, sans-serif" font-size="8.5" fill="#221D14">{{ node.name[:12] }}</text>
+      {% endfor %}
+    </svg>
+  </div>
+  {% endif %}
 
-{{ game.name[:14] }}
-{{ node.name[:12] }}
-{% endif %}
-Recommended if you like {{ game.name }}
-{% if recommendations %}
-{% for rec in recommendations %}
-{{ rec.recommended_game }}
-{{ rec.shared_count }} shared mechanic{{ 's' if rec.shared_count != 1 else '' }}
-{% for m in rec.shared_mechanics %}{{ m }}{% endfor %}
-{% endfor %}
-{% else %}
-No related games yet
-This game doesn't share a mechanic with anything else in the graph.
-
-{% endif %} {% endblock %}
+  <h2>Recommended if you like {{ game.name }}</h2>
+  {% if recommendations %}
+    <div class="shelf">
+      {% for rec in recommendations %}
+        <a class="game-card" href="{{ url_for('game_detail', game_name=rec.recommended_game) }}">
+          <h3>{{ rec.recommended_game }}</h3>
+          <div class="meta">{{ rec.shared_count }} shared mechanic{{ 's' if rec.shared_count != 1 else '' }}</div>
+          <div class="tags">
+            {% for m in rec.shared_mechanics %}<span class="tag shared">{{ m }}</span>{% endfor %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h2>No related games yet</h2>
+      <p>This game doesn't share a mechanic with anything else in the graph.</p>
+    </div>
+  {% endif %}
+{% endblock %}
