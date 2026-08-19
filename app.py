@@ -8,6 +8,7 @@ from neo4j.exceptions import ServiceUnavailable, AuthError
 
 import queries
 
+# Load environment variables
 load_dotenv()
 
 URI = os.getenv("COGNODB_URI")
@@ -20,30 +21,14 @@ _driver = None
 
 
 def get_driver():
-    """Create a shared driver and verify the database connection."""
+    """Lazily create a single shared CognoDB driver."""
     global _driver
 
     if _driver is None:
         _driver = GraphDatabase.driver(
             URI,
-            auth=(USER, PASSWORD),
+            auth=(USER, PASSWORD)
         )
-
-    try:
-        _driver.verify_connectivity()
-
-    except Exception:
-        try:
-            _driver.close()
-        except Exception:
-            pass
-
-        _driver = GraphDatabase.driver(
-            URI,
-            auth=(USER, PASSWORD),
-        )
-
-        _driver.verify_connectivity()
 
     return _driver
 
@@ -87,7 +72,10 @@ def home():
 def game_detail(game_name):
     driver = get_driver()
 
-    game = queries.get_game(driver, game_name)
+    game = queries.get_game(
+        driver,
+        game_name
+    )
 
     if game is None:
         abort(404)
@@ -98,17 +86,24 @@ def game_detail(game_name):
         min_shared=1
     )
 
-    # Position nodes around the hub for the connection web SVG.
+    # Create positions for the connection web
     web_nodes = []
 
-    count = len(recommendations)
+    visible_recommendations = recommendations[:8]
+    count = len(visible_recommendations)
 
-    for i, rec in enumerate(recommendations[:8]):
-        angle = (2 * math.pi * i / count) if count else 0
+    for i, rec in enumerate(visible_recommendations):
+
+        angle = (
+            2 * math.pi * i / count
+            if count
+            else 0
+        )
 
         radius = 150
 
-        cx, cy = 220, 160
+        cx = 220
+        cy = 160
 
         x = cx + radius * math.cos(angle)
         y = cy + radius * math.sin(angle)
@@ -132,6 +127,7 @@ def game_detail(game_name):
 
 @app.route("/connect", methods=["GET", "POST"])
 def connect():
+
     driver = get_driver()
 
     all_games = [
@@ -147,11 +143,11 @@ def connect():
     searched = False
 
     if game_a and game_b:
+
         searched = True
 
         if game_a == game_b:
             path = None
-
         else:
             path = queries.shortest_connection(
                 driver,
@@ -171,6 +167,7 @@ def connect():
 
 @app.route("/designer/<designer_name>")
 def designer_detail(designer_name):
+
     driver = get_driver()
 
     profile = queries.designer_theme_range(
@@ -194,8 +191,15 @@ def not_found(error):
     ), 404
 
 
+# Local development / fallback server
+# Render uses Gunicorn, so this section is not used by Gunicorn.
 if __name__ == "__main__":
+
+    port = int(
+        os.environ.get("PORT", 10000)
+    )
+
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000))
+        port=port
     )
