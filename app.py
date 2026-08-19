@@ -8,7 +8,6 @@ from neo4j.exceptions import ServiceUnavailable, AuthError
 
 import queries
 
-# Load environment variables
 load_dotenv()
 
 URI = os.getenv("COGNODB_URI")
@@ -49,14 +48,28 @@ def home():
     mechanic = request.args.get("mechanic") or None
     theme = request.args.get("theme") or None
 
+    # Get games using the existing working query.
     games = queries.list_games(
         driver,
         mechanic=mechanic,
         theme=theme
     )
 
-    all_mechanics = queries.list_mechanics(driver)
-    all_themes = queries.list_themes(driver)
+    # Build the dropdown values from the same game data.
+    # This avoids relying on separate list_mechanics/list_themes queries.
+    all_mechanics = sorted({
+        mechanic_name
+        for game in games
+        for mechanic_name in game.get("mechanics", [])
+        if mechanic_name
+    })
+
+    all_themes = sorted({
+        theme_name
+        for game in games
+        for theme_name in game.get("themes", [])
+        if theme_name
+    })
 
     return render_template(
         "index.html",
@@ -64,7 +77,7 @@ def home():
         all_mechanics=all_mechanics,
         all_themes=all_themes,
         selected_mechanic=mechanic,
-        selected_theme=theme,
+        selected_theme=theme
     )
 
 
@@ -93,112 +106,70 @@ def game_detail(game_name):
     count = len(visible_recommendations)
 
     for i, rec in enumerate(visible_recommendations):
-
         angle = (
             2 * math.pi * i / count
             if count
             else 0
         )
 
-        radius = 150
-        cx = 220
-        cy = 160
-
-        x = cx + radius * math.cos(angle)
-        y = cy + radius * math.sin(angle)
-
-        web_nodes.append(
-            {
-                "name": rec["recommended_game"],
-                "shared_count": rec["shared_count"],
-                "x": round(x, 1),
-                "y": round(y, 1),
-            }
-        )
+        web_nodes.append({
+            "name": rec["recommended_game"],
+            "shared_mechanics": rec["shared_mechanics"],
+            "shared_count": rec["shared_count"],
+            "x": 50 + 35 * math.cos(angle),
+            "y": 50 + 35 * math.sin(angle)
+        })
 
     return render_template(
         "game.html",
         game=game,
         recommendations=recommendations,
-        web_nodes=web_nodes,
+        web_nodes=web_nodes
     )
 
 
-@app.route("/connect", methods=["GET", "POST"])
-def connect():
-
+@app.route("/path")
+def path_finder():
     driver = get_driver()
 
-    all_games = [
-        g["name"]
-        for g in queries.list_games(driver)
+    game_a = request.args.get("game_a") or None
+    game_b = request.args.get("game_b") or None
+
+    games = queries.list_games(driver)
+
+    game_names = [
+        game["name"]
+        for game in games
     ]
 
-    path = None
+    result = None
+    searched = bool(game_a and game_b)
 
-    game_a = request.values.get("game_a") or None
-    game_b = request.values.get("game_b") or None
-
-    searched = False
-
-    if game_a and game_b:
-
-        searched = True
-
+    if searched:
         if game_a == game_b:
-            path = None
+            result = {
+                "path_nodes": [game_a],
+                "hops": 0
+            }
         else:
-            path = queries.shortest_connection(
+            result = queries.shortest_connection(
                 driver,
                 game_a,
                 game_b
             )
 
     return render_template(
-        "connect.html",
-        all_games=all_games,
+        "path.html",
+        games=game_names,
         game_a=game_a,
         game_b=game_b,
-        path=path,
-        searched=searched,
+        result=result,
+        searched=searched
     )
 
 
-@app.route("/designer/<designer_name>")
-def designer_detail(designer_name):
-
-    driver = get_driver()
-
-    profile = queries.designer_theme_range(
-        driver,
-        designer_name
-    )
-
-    if profile is None:
-        abort(404)
-
-    return render_template(
-        "designer.html",
-        profile=profile
-    )
-
-
-@app.errorhandler(404)
-def not_found(error):
-    return render_template(
-        "not_found.html"
-    ), 404
-
-
-# Local development / fallback server
-# Render uses Gunicorn, so this section is not used by Gunicorn.
 if __name__ == "__main__":
-
-    port = int(
-        os.environ.get("PORT", 10000)
-    )
-
     app.run(
         host="0.0.0.0",
-        port=port
+        port=int(os.environ.get("PORT", 5000))
     )
