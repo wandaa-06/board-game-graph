@@ -1,4 +1,36 @@
-TableLink.
-Browse Find a connection
-{% block content %}{% endblock %}
-Built on a graph database — every recommendation here is a traversal, not a lookup table.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}TableLink{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header class="site">
+    <div class="wrap">
+        <a href="{{ url_for('home') }}" class="brand">
+            TableLink<span class="dot">.</span>
+        </a>
+
+        <nav class="site-nav">
+            <a href="{{ url_for('home') }}">Browse</a>
+            <a href="{{ url_for('connect') }}">Find a connection</a>
+        </nav>
+    </div>
+</header>
+
+<main class="wrap">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="site">
+    Built on a graph database — every recommendation here is a traversal, not a lookup table.
+</footer>
+
+</body>
+</html>
