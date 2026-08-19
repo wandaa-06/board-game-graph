@@ -1,8 +1,5 @@
 """
 Core Cypher queries for the Board Game Recommendation Graph.
-
-Temporary test version:
-This also checks whether Mechanics and Themes exist in Neo4j.
 """
 
 import os
@@ -31,7 +28,6 @@ def recommend_by_shared_mechanics(driver, game_name, min_shared=2):
            shared_count
     ORDER BY shared_count DESC
     """
-
     with driver.session() as session:
         result = session.run(
             query,
@@ -53,7 +49,6 @@ def shortest_connection(driver, game_a, game_b, max_hops=4):
                 coalesce(node.name, labels(node)[0])] AS path_nodes,
            length(path) AS hops
     """ % max_hops
-
     with driver.session() as session:
         result = session.run(
             query,
@@ -75,7 +70,6 @@ def designer_theme_range(driver, designer_name):
            collect(DISTINCT t.name) AS themes_covered,
            count(DISTINCT g) AS games_designed
     """
-
     with driver.session() as session:
         result = session.run(
             query,
@@ -86,7 +80,11 @@ def designer_theme_range(driver, designer_name):
 
 
 # ---------------------------------------------------------------------------
-# Query 4: List all games, optionally filtered
+# Query 4: List all games, optionally filtered by mechanic and/or theme.
+# The graph fetch itself is unfiltered Cypher; filtering happens in Python
+# afterward, to avoid relying on CognoDB's behavior for parameterized
+# NULL-checks combined with list membership inside a WHERE clause that
+# follows an aggregating WITH.
 # ---------------------------------------------------------------------------
 def list_games(driver, mechanic=None, theme=None):
     query = """
@@ -99,9 +97,6 @@ def list_games(driver, mechanic=None, theme=None):
          collect(DISTINCT m.name) AS mechanics,
          collect(DISTINCT t.name) AS themes,
          d.name AS designer
-
-    WHERE ($mechanic IS NULL OR $mechanic IN mechanics)
-      AND ($theme IS NULL OR $theme IN themes)
 
     RETURN g.name AS name,
            g.year_published AS year_published,
@@ -116,12 +111,15 @@ def list_games(driver, mechanic=None, theme=None):
     """
 
     with driver.session() as session:
-        result = session.run(
-            query,
-            mechanic=mechanic,
-            theme=theme
-        )
-        return [record.data() for record in result]
+        result = session.run(query)
+        games = [record.data() for record in result]
+
+    if mechanic:
+        games = [g for g in games if mechanic in (g["mechanics"] or [])]
+    if theme:
+        games = [g for g in games if theme in (g["themes"] or [])]
+
+    return games
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +141,6 @@ def get_game(driver, game_name):
            collect(DISTINCT t.name) AS themes,
            d.name AS designer
     """
-
     with driver.session() as session:
         result = session.run(
             query,
@@ -190,77 +187,3 @@ def list_designers(driver):
             """
         )
         return [record["name"] for record in result]
-
-
-# ---------------------------------------------------------------------------
-# TEMPORARY DATABASE TEST
-# ---------------------------------------------------------------------------
-def main():
-    print("Connecting to Neo4j...")
-
-    driver = GraphDatabase.driver(
-        URI,
-        auth=(USER, PASSWORD)
-    )
-
-    try:
-        driver.verify_connectivity()
-
-        print("\n========================================")
-        print("DATABASE CONNECTION: SUCCESS")
-        print("========================================")
-
-        print("\n--- MECHANICS ---")
-        mechanics = list_mechanics(driver)
-        print(mechanics)
-        print("Number of mechanics:", len(mechanics))
-
-        print("\n--- THEMES ---")
-        themes = list_themes(driver)
-        print(themes)
-        print("Number of themes:", len(themes))
-
-        print("\n--- GAMES ---")
-        games = list_games(driver)
-        print("Number of games:", len(games))
-
-        if games:
-            print("\nFirst game:")
-            print(games[0])
-
-        print("\n--- FILTER TEST ---")
-
-        if mechanics:
-            test_mechanic = mechanics[0]
-
-            print("Testing mechanic:", test_mechanic)
-
-            filtered_games = list_games(
-                driver,
-                mechanic=test_mechanic
-            )
-
-            print("Games returned:", len(filtered_games))
-
-            for game in filtered_games:
-                print(" -", game["name"])
-
-        else:
-            print("NO MECHANICS FOUND — cannot test mechanic filter.")
-
-        print("\n========================================")
-        print("TEST COMPLETE")
-        print("========================================")
-
-    except Exception as error:
-        print("\n========================================")
-        print("ERROR")
-        print("========================================")
-        print(error)
-
-    finally:
-        driver.close()
-
-
-if __name__ == "__main__":
-    main()
